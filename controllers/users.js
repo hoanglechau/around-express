@@ -1,28 +1,126 @@
-const path = require('path');
-const { readFile } = require('../helpers');
-
-const USERS_PATH = path.join(__dirname, '../data/users.json');
+const User = require('../models/user');
+const {
+  CAST_ERROR_ERROR_CODE,
+  VALIDATION_ERROR_CODE,
+  NOT_FOUND_ERROR_CODE,
+  INTERNAL_SERVER_ERROR_CODE,
+} = require('../utils/errors');
 
 const getUsers = (req, res) => {
-  readFile(USERS_PATH)
-    .then((users) => res.send({ data: JSON.parse(users) }))
-    .catch(() => res.status(500).send({ message: 'An error has occurred on the server' }));
+  User.find({})
+    .orFail()
+    .then((users) => res.send({ data: users }))
+    .catch(() => res
+      .status(INTERNAL_SERVER_ERROR_CODE)
+      .send({ message: 'An error has occurred on the server' }));
 };
 
 const getUser = (req, res) => {
-  readFile(USERS_PATH)
-    .then((users) => {
-      const { id } = req.params;
-      const parsedUsersData = JSON.parse(users);
-      const user = parsedUsersData.find(({ _id: userId }) => userId === id);
+  const { id } = req.params;
 
+  User.findById(id)
+    .orFail()
+    .then((users) => users.find((user) => user._id === req.params.id))
+    .then((user) => {
       if (!user) {
-        res.status(404).send({ message: 'User ID not found' });
-      } else {
-        res.send({ data: user });
+        res
+          .status(NOT_FOUND_ERROR_CODE)
+          .send({ message: 'User ID not found' });
+        return;
       }
+      res.send(user);
     })
-    .catch(() => res.status(500).send({ message: 'An error has occurred on the server' }));
+    .catch(() => res
+      .status(INTERNAL_SERVER_ERROR_CODE)
+      .send({ message: 'An error has occurred on the server' }));
 };
 
-module.exports = { getUsers, getUser };
+const createUser = (req, res) => {
+  const { name, about, avatar } = req.body;
+
+  User.create({ name, about, avatar })
+    .then((user) => res.send({ data: user }))
+    .catch(() => res.status(INTERNAL_SERVER_ERROR_CODE).send({ message: 'Error' }));
+};
+
+const updateUserInfo = (req, res) => {
+  const currentUser = req.user._id;
+  const { name, about } = req.body;
+
+  User.findByIdAndUpdate(
+    currentUser,
+    { name, about },
+    {
+      new: true,
+      runValidators: true,
+    },
+  )
+    .orFail()
+    .then((user) => res.send({ data: user }))
+    .catch((err) => {
+      if (err.name === 'DocumentNotFoundError') {
+        res
+          .status(NOT_FOUND_ERROR_CODE)
+          .send({ message: ' User not found' });
+      } else if (err.name === 'ValidationError') {
+        res.status(VALIDATION_ERROR_CODE).send({
+          message: `${Object.values(err.errors)
+            .map((error) => error.message)
+            .join(', ')}`,
+        });
+      } else if (err.name === 'CastError') {
+        res.status(CAST_ERROR_ERROR_CODE).send({
+          message: 'Invalid User ID',
+        });
+      } else {
+        res.status(INTERNAL_SERVER_ERROR_CODE).send({
+          message: 'An error has occurred on the server',
+        });
+      }
+    });
+};
+
+const updateUserAvatar = (req, res) => {
+  const currentUser = req.user._id;
+  const { avatar } = req.body;
+
+  User.findOneAndUpdate(
+    currentUser,
+    { avatar },
+    {
+      new: true,
+      runValidators: true,
+    },
+  )
+    .orFail()
+    .then((user) => res.send({ data: user }))
+    .catch((err) => {
+      if (err.name === 'DocumentNotFoundError') {
+        res
+          .status(NOT_FOUND_ERROR_CODE)
+          .send({ message: 'User not found' });
+      } else if (err.name === 'ValidationError') {
+        res.status(VALIDATION_ERROR_CODE).send({
+          message: `${Object.values(err.errors)
+            .map((error) => error.message)
+            .join(', ')}`,
+        });
+      } else if (err.name === 'CastError') {
+        res.status(CAST_ERROR_ERROR_CODE).send({
+          message: 'Invalid avatar URL',
+        });
+      } else {
+        res.status(INTERNAL_SERVER_ERROR_CODE).send({
+          message: 'An error has occurred on the server',
+        });
+      }
+    });
+};
+
+module.exports = {
+  getUsers,
+  getUser,
+  createUser,
+  updateUserInfo,
+  updateUserAvatar,
+};
