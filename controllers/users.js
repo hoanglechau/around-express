@@ -19,20 +19,23 @@ const getUser = (req, res) => {
   const { id } = req.params;
 
   User.findById(id)
-    .orFail()
-    .then((users) => users.find((user) => user._id === req.params.id))
-    .then((user) => {
-      if (!user) {
-        res
-          .status(NOT_FOUND_ERROR_CODE)
-          .send({ message: 'User ID not found' });
-        return;
-      }
-      res.send(user);
+    .orFail(() => {
+      const error = new Error('User Id not found');
+      error.statusCode = NOT_FOUND_ERROR_CODE;
+      throw error;
     })
-    .catch(() => res
-      .status(INTERNAL_SERVER_ERROR_CODE)
-      .send({ message: 'An error has occurred on the server' }));
+    .then((users) => res.send({ data: users }))
+    .catch((err) => {
+      if (err.name === 'CastError') {
+        res.status(CAST_ERROR_ERROR_CODE).send({ message: 'Invalid card ID' });
+      } else if (err.name === 'DocumentNotFoundError') {
+        res.status(NOT_FOUND_ERROR_CODE).send({ message: 'Card not found' });
+      } else {
+        res
+          .status(INTERNAL_SERVER_ERROR_CODE)
+          .send({ message: 'An error has occurred on the server' });
+      }
+    });
 };
 
 const createUser = (req, res) => {

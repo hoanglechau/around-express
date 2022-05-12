@@ -51,8 +51,8 @@ const deleteCard = (req, res) => {
     .catch((err) => {
       if (err.name === 'CastError') {
         res.status(CAST_ERROR_ERROR_CODE).send({ message: 'Invalid card ID' });
-      } else if (err.statusCode === NOT_FOUND_ERROR_CODE) {
-        res.status(NOT_FOUND_ERROR_CODE).send({ message: err.message });
+      } else if (err.name === 'DocumentNotFoundError') {
+        res.status(NOT_FOUND_ERROR_CODE).send({ message: 'Card not found' });
       } else {
         res
           .status(INTERNAL_SERVER_ERROR_CODE)
@@ -76,8 +76,8 @@ const updateLike = (req, res, method) => {
     .catch((err) => {
       if (err.name === 'CastError') {
         res.status(CAST_ERROR_ERROR_CODE).send({ message: 'Invalid card ID' });
-      } else if (err.statusCode === NOT_FOUND_ERROR_CODE) {
-        res.status(NOT_FOUND_ERROR_CODE).send({ message: err.message });
+      } else if (err.name === 'DocumentNotFoundError') {
+        res.status(NOT_FOUND_ERROR_CODE).send({ message: 'Card not found' });
       } else {
         res
           .status(INTERNAL_SERVER_ERROR_CODE)
